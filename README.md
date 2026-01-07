@@ -1,98 +1,200 @@
-### **White Paper: The AmorphousDB Protocol v2.0 - A Blockchain-Integrated, Self-Organizing Neuro-Symbolic Knowledge System for the Open-Source Era**
+### **AmorphousDB Protocol v2.0 — A Federated, Self-Deduplicating Knowledge Store**
 
 #### **Abstract**
 
-This updated white paper presents AmorphousDB Protocol v2.0, an open-source blueprint for a data architecture that integrates semantic embeddings, relational logic, and blockchain principles into a single, self-organizing system. Building on the original protocol's unified Cogniton structure, v2.0 introduces blockchain-based node immutability, CAN-bus-inspired query broadcasting, automated duplication checks, dynamic pruning to cold storage with path reconnection, and decentralized consensus mechanisms. Designed for scalability, resilience, and community-driven evolution, AmorphousDB extends traditional databases by creating a distributed structure that grows dynamically—efficient, tamper-proof, and adaptable. This is not merely an AI memory system; it is a foundational protocol for decentralized knowledge ecosystems, ready for open-source implementation.
+AmorphousDB is a distributed database protocol where multiple instances — on the same server or across different locations — synchronize and behave as a single logical database. Instances can be added or removed dynamically without downtime.
+
+The core data structure is the **Cogniton**: a unit that combines semantic embeddings (for meaning) with relational edges (for structure) in one entity. This eliminates the awkward split between vector databases and graph databases.
+
+Key features:
+- **Federation**: Multiple database instances sync automatically. A company's databases across offices appear as one.
+- **Semantic deduplication**: New data is checked against existing data using vector similarity. Near-duplicates are detected and handled, not just exact matches.
+- **Broadcast queries**: Queries are sent to all instances; only those with relevant data respond.
+- **Cold storage with reconnection**: Unused data moves to archival storage, with graph connections preserved.
 
 ---
 
-#### **1. Introduction: The Imperative for a Decentralized Data Architecture**
+#### **1. Introduction: The Problem**
 
-The original AmorphousDB Protocol addressed the "hybrid failure" of bolted-on vector and graph databases, proposing a monistic structure where semantics and logic emerge from a single "Cogniton" entity. However, in an era of distributed AI, data sovereignty, and open-source collaboration, v2.0 evolves this vision into a blockchain-integrated framework. Each Cogniton is now a node in a tamper-resistant chain, ensuring immutability and verifiability. Unused nodes migrate to cold storage, maintaining efficiency without data loss, while query mechanisms mimic CAN-bus broadcasting for fault-tolerant, responsive retrieval. Duplication is preempted through similarity hashing, and node pruning triggers automatic path reconnection to preserve graph integrity.
+Most systems that need both semantic search (vectors) and structured relationships (graphs) end up bolting together separate databases — a vector store like Pinecone alongside a graph database like Neo4j. This creates:
 
-This protocol is engineered for open-source deployment: lightweight, modular, and extensible, with hooks for community contributions like custom consensus algorithms or storage backends. Key requirements—such as cryptographic signing for data provenance, sharding for massive-scale deployments, and integration with decentralized storage (e.g., IPFS)—are incorporated to make AmorphousDB a robust foundation for Web3 AI applications, from collaborative knowledge bases to autonomous agents.
+- **Data duplication**: The same information lives in multiple places.
+- **Sync complexity**: Keeping the vector and graph representations consistent is error-prone.
+- **Query limitations**: You can't easily combine "find semantically similar" with "traverse relationships" in one operation.
 
----
+AmorphousDB addresses this by storing semantic and relational information together in a single structure.
 
-#### **2. Core Architecture: Cognitons as Blockchain Nodes in a Distributed Graph**
-
-At the heart of AmorphousDB is the **Cogniton**, an atomic unit that encapsulates both intuitive (vector-based) and logical (edge-based) knowledge. In v2.0, every Cogniton is a **blockchain node**, forming a directed acyclic graph (DAG)-like chain where additions are immutable and verifiable.
-
-- **Cogniton Structure:**
-  - **Vector Position (`vector`):** A high-dimensional embedding (e.g., 1536 dimensions from FastBERT), representing semantic "color" or meaning.
-  - **Relational Edges (`edges`):** Labeled, directed pointers to other Cogniton IDs, now cryptographically signed for integrity.
-  - **Blockchain Metadata (`block`):** New in v2.0—a hash of the previous Cogniton in the addition chain, a timestamp, nonce for proof-of-work/stake, and a Merkle root for batch verifiability.
-  - **Provenance Data (`provenance`):** A ledger of origin (e.g., source URL, ingestion timestamp, contributor ID), enabling audit trails in open-source environments.
-
-The distributed graph is the global collection of these chained Cognitons—a dynamically expanding structure. Unlike traditional blockchains (linear and rigid), AmorphousDB's chain is multi-dimensional: new Cognitons "branch" from multiple parents via edges, creating a resilient web. This DAG structure allows parallel additions without central bottlenecks, ideal for distributed open-source contributions.
-
-**Overlooked Necessity: Sharding and Federation.** For scalability, the graph can be sharded by semantic clusters (using LSH for partitioning), with federation protocols allowing multiple AmorphousDB instances to sync via gossip or pub-sub, ensuring global consistency in decentralized setups.
+The v2.0 protocol adds distribution: multiple AmorphousDB instances form a federation, sharing data like BitTorrent peers share files. You can run instances on one server for redundancy, or across data centers for geographic distribution. The federation handles synchronization, deduplication, and query routing.
 
 ---
 
-#### **3. Intelligent Ingestion: Consensus-Driven Assimilation with Duplication Guards**
+#### **2. Core Architecture: The Cogniton**
 
-Ingestion is the protocol's data integration process—an active, intelligent mechanism that weaves new data into the graph while maintaining integrity.
+The **Cogniton** is the fundamental data unit. It combines what would normally be stored separately in vector and graph databases:
 
-1. **Duplication Check (The "Similarity Gatekeeper"):** Before addition, the new data's vector is hashed (e.g., via MinHash) and queried against the graph. If similarity exceeds a threshold (e.g., 0.95 cosine), the ingestion aborts or merges with the existing Cogniton, preventing bloat. This is enforced via a "uniqueness proof" in the blockchain metadata.
-2. **Vector "Push" Placement:** Similarity search finds the N nearest neighbors, determining the new Cogniton's position in the graph.
-3. **Synapse Formation:** A relation-inference LLM hypothesizes edges, now validated by a lightweight consensus mechanism (e.g., proof-of-stake among neighboring nodes or open-source validators).
-4. **Blockchain Commitment:** The new Cogniton is appended as a block, with its hash linking to parent Cognitons. This ensures immutability—once added, data cannot be altered without forking the chain.
-5. **Broadcast Confirmation:** Like CAN-bus, the new Cogniton is broadcast to all nodes; only relevant shards "acknowledge" and integrate, with non-responders flagged for later sync.
+```
+Cogniton {
+    id:        unique identifier (content hash)
+    vector:    semantic embedding (e.g., 768 or 1536 dimensions)
+    edges:     list of labeled connections to other Cognitons
+    metadata:  source, timestamp, instance origin
+}
+```
 
-**Overlooked Necessity: Conflict Resolution.** If duplicates are detected post-ingestion (e.g., race conditions in distributed setups), a merge algorithm reconciles vectors (weighted average) and edges (union with conflict tags), logged in the provenance ledger.
+**Fields explained:**
 
----
+- **`id`**: A hash of the Cogniton's content. This serves as both identifier and integrity check — if the content changes, the hash changes.
+- **`vector`**: A numerical representation of the Cogniton's meaning, generated by an embedding model (e.g., sentence-transformers, OpenAI embeddings). Used for similarity search.
+- **`edges`**: Labeled, directed links to other Cognitons. Example: `("is_part_of", cogniton_456)`. This is the relational/graph component.
+- **`metadata`**: Origin information — which instance created it, when, from what source. Used for sync conflict resolution.
 
-#### **4. Query Engine: CAN-Bus Broadcasting in a Semantic Network**
+**The distributed graph** is the collection of all Cognitons across all federated instances. Each instance holds a subset (or full copy, depending on configuration), and they synchronize changes.
 
-Queries propagate through the graph via distributed broadcasting, leveraging blockchain for verifiable responses.
-
-1. **Broadcast "Signal" (CAN-Bus Analogy):** The query vector is broadcast to all nodes (or sharded subsets for efficiency). Like CAN-bus in vehicles, every Cogniton "hears" the request but only responds if it matches (vector similarity > threshold). This fault-tolerant design ensures no single point of failure—non-responsive nodes are bypassed.
-2. **Vector Ripple + Graph Cascade:** Initial responders form seeds; edges are traversed to cascade logically, with blockchain hashes verifying path integrity.
-3. **Resonance Aggregation:** Results form a sub-graph, ranked by relevance and chain depth. Responses include provenance traces for transparency.
-4. **Overlooked Necessity: Query Auditing.** Each query logs a blockchain entry, enabling replay attacks detection and open-source analytics for optimization.
-
----
-
-#### **5. Pruning and Cold Storage: Adaptive Longevity with Path Reconnection**
-
-To combat bloat, v2.0 introduces dynamic pruning, treating the graph as an adaptive structure that archives unused nodes.
-
-1. **Usage Tracking:** Each Cogniton tracks access frequency via a "heat" metric (e.g., exponential decay counter).
-2. **Pruning Threshold:** Nodes with heat < threshold (e.g., unused for 90 days) are "dropped" to cold storage (e.g., IPFS or S3), replaced by a stub Cogniton with a retrieval pointer.
-3. **Path Reconnection:** Upon pruning, edges are rewired: inbound/outbound links reroute to the nearest semantic neighbor, preserving graph connectivity. This reconnection mechanism ensures no knowledge silos form.
-4. **Retrieval Mechanism:** On query hit to a stub, the full node is fetched from cold storage and reinserted with updated heat.
-5. **Overlooked Necessity: Pruning Consensus.** Drops require multi-node approval to prevent adversarial pruning, with blockchain logging for reversibility.
+**Sharding**: For large deployments, the graph can be partitioned by semantic clusters. Cognitons with similar vectors live on the same shard, making similarity queries local to a shard when possible.
 
 ---
 
-#### **6. Security and Decentralization: Blockchain's Immutable Backbone**
+#### **3. Ingestion: Adding Data with Deduplication**
 
-AmorphousDB v2.0 leverages blockchain for trustless operation:
+When new data is added, AmorphousDB checks for duplicates before inserting:
 
-- **Immutability:** Cogniton hashes prevent tampering; forks allow versioning for open-source forks.
-- **Consensus for Additions:** Proof-of-relevance (similarity-based stake) validates ingestions in distributed networks.
-- **Cryptographic Signing:** Contributors sign data with keys, enabling attribution and revocation.
-- **Overlooked Necessity: Privacy Layers.** Optional zero-knowledge proofs mask sensitive edges during queries, with sharding isolating private/public data partitions.
+**Step 1: Generate embedding**
+The new data is converted to a vector using the configured embedding model.
+
+**Step 2: Check for duplicates**
+The vector is compared against existing Cognitons using similarity search. Two levels of matching:
+
+- **Exact match** (hash collision): The data already exists. Skip insertion.
+- **Near match** (vector similarity > threshold, e.g., 0.95): A semantically similar Cogniton exists. Options:
+  - Reject the new data
+  - Merge with existing (combine edges, keep newer metadata)
+  - Insert anyway with a "similar_to" edge linking them
+  - Flag for manual review
+
+The appropriate behavior is configurable per deployment.
+
+**Step 3: Find neighbors**
+Similarity search identifies the N most similar existing Cognitons. These become candidates for edge creation.
+
+**Step 4: Create edges**
+Edges can be:
+- Explicitly provided by the caller
+- Inferred from similarity (automatic "related_to" edges to nearest neighbors)
+- Generated by an optional LLM that suggests relationship types based on content
+
+**Step 5: Insert and sync**
+The new Cogniton is inserted locally and broadcast to other instances in the federation. Each instance applies the same deduplication check before accepting.
+
+**Conflict resolution**: If two instances simultaneously add similar data (race condition), the conflict is resolved by timestamp — earliest insertion wins, later duplicates are merged or rejected.
 
 ---
 
-#### **7. Implementation Roadmap: Open-Source Ready**
+#### **4. Query Engine: Broadcast and Collect**
 
-Built in C# with native .NET (no FAISS/Pinecone), AmorphousDB is modular:
+Queries in a federated AmorphousDB use a scatter-gather pattern:
 
-- **Core:** `Cogniton` class with vector/edges/block metadata.
-- **Storage:** SQLite for hot nodes; IPFS for cold.
-- **Ingestion:** LSH for push; LLM for synapses (via ONNX/FastBERT).
-- **Query:** Broadcast via pub-sub; ripple with BFS.
-- **Pruning:** Background cron with reconnection algo.
-- **Overlooked Necessity: API & SDK.** REST/GRPC endpoints; SDKs for Python/JS to foster community plugins.
+**Step 1: Broadcast**
+The query (text or vector) is sent to all instances in the federation. Each instance searches its local data.
 
-Benchmarks (simulated): 50% faster queries vs. hybrids; 30% less storage via pruning.
+**Step 2: Local search**
+Each instance performs:
+- **Vector similarity search**: Find Cognitons whose vectors are close to the query vector
+- **Graph traversal** (optional): From the initial matches, follow edges to find related Cognitons
+
+**Step 3: Collect and merge**
+Results from all instances are collected, deduplicated (by Cogniton ID), and ranked by relevance score.
+
+**Fault tolerance**: If an instance is unavailable, the query proceeds with the remaining instances. Results may be incomplete, but the system doesn't fail. The caller can be notified which instances didn't respond.
+
+**Optimization**: For sharded deployments, the query is routed only to shards likely to contain relevant data (based on the query vector's position in the semantic space). This avoids broadcasting to every shard.
 
 ---
 
-#### **8. Conclusion: An Open-Source Foundation for Decentralized Knowledge Systems**
+#### **5. Cold Storage and Pruning**
 
-AmorphousDB v2.0 is more than a database—it is a blueprint for decentralized knowledge management. By open-sourcing this protocol, we provide a foundation for building resilient, efficient, and scalable systems. This architecture offers a robust approach for AI applications requiring integrated semantic and relational data structures. We encourage community contributions and implementations to advance this technology further.
+To manage storage costs, infrequently accessed Cognitons can be moved to cheaper archival storage:
+
+**Usage tracking**
+Each Cogniton has an access counter that decays over time. Frequently accessed data stays "hot"; unused data becomes "cold."
+
+**Pruning process**
+When a Cogniton's access score falls below a threshold (configurable, e.g., no access in 90 days):
+
+1. The full Cogniton is moved to cold storage (S3, local archive, etc.)
+2. A stub remains in the active graph containing:
+   - The Cogniton ID
+   - A pointer to the cold storage location
+   - The vector (so similarity search still works)
+3. Edges are preserved — they now point to the stub
+
+**Retrieval**
+When a query matches a stub, the full Cogniton is fetched from cold storage and restored to the active graph. Its access counter resets.
+
+**Path reconnection** (optional)
+For aggressive pruning where even stubs are removed: before deletion, the pruned Cogniton's edges are rewired to its nearest semantic neighbor. This maintains graph connectivity at the cost of some precision.
+
+**Coordination**
+In a federation, pruning decisions are made per-instance. Each instance manages its own hot/cold boundary. A Cogniton might be cold on one instance but hot on another (due to different access patterns).
+
+---
+
+#### **6. Data Integrity and Security**
+
+**Content-addressed storage**
+Cogniton IDs are hashes of their content. This provides:
+- **Integrity verification**: If data is corrupted or tampered with, the hash won't match
+- **Deduplication**: Identical content always produces the same ID
+- **Cache-friendly**: Cognitons are immutable once created (edits create new Cognitons)
+
+**Access control**
+Each instance can enforce its own access policies:
+- Read/write permissions per user or API key
+- Namespace isolation (different teams see different subsets)
+- Edge-level permissions (some relationships may be restricted)
+
+**Audit logging**
+Changes are logged with timestamps and source instance. This provides a history of who added what and when.
+
+**Federation trust**
+Instances in a federation must be configured to trust each other. An instance only syncs with explicitly approved peers. This is not a public network — it's a private federation under organizational control.
+
+---
+
+#### **7. Implementation Notes**
+
+**Suggested technology stack** (reference implementation):
+
+| Component | Suggested approach |
+|-----------|-------------------|
+| Core | C# / .NET |
+| Hot storage | SQLite or PostgreSQL per instance |
+| Cold storage | S3, local filesystem, or similar |
+| Vector index | HNSW (Hierarchical Navigable Small World) for approximate nearest neighbor |
+| Embeddings | ONNX runtime with sentence-transformers or similar |
+| Federation sync | gRPC or message queue (RabbitMQ, Redis streams) |
+| API | REST and/or gRPC endpoints |
+
+**Modules**:
+- **Cogniton**: Core data structure with vector, edges, metadata
+- **Ingestion**: Embedding generation, deduplication, edge creation
+- **Query**: Similarity search, graph traversal, result aggregation
+- **Sync**: Instance discovery, change propagation, conflict resolution
+- **Pruning**: Background process for cold storage migration
+
+**Not yet benchmarked**: Performance claims require real implementation and testing. Expected benefits are reduced storage through deduplication and pruning, and simplified architecture compared to separate vector + graph databases.
+
+---
+
+#### **8. Summary**
+
+AmorphousDB is a federated database that:
+
+1. **Unifies vectors and graphs** — The Cogniton structure stores semantic embeddings and relational edges together, eliminating the need for separate vector and graph databases.
+
+2. **Federates across instances** — Multiple database instances sync automatically. Add or remove instances as needed. A company's data across locations appears as one logical database.
+
+3. **Deduplicates semantically** — New data is checked against existing data using vector similarity, catching near-duplicates that hash-based deduplication would miss.
+
+4. **Manages storage lifecycle** — Unused data moves to cold storage automatically, with graph connections preserved.
+
+This is a protocol specification. Implementation work is needed to validate the design and measure real-world performance.
