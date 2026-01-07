@@ -48,6 +48,12 @@ Cogniton {
 - **`edges`**: Labeled, directed links to other Cognitons. Example: `("is_part_of", cogniton_456)`. This is the relational/graph component.
 - **`metadata`**: Origin information — which instance created it, when, from what source. Used for sync conflict resolution.
 
+**Spatial mental model**
+
+Think of Cognitons as nodes floating in high-dimensional space. Their position is determined by their vector — semantically similar data clusters together. Edges connect nearby nodes, forming a mesh where each node links to its closest neighbors.
+
+When a node is removed, the graph self-heals: surrounding nodes reconnect to each other, filling the gap. The mesh remains connected because proximity relationships are preserved — if A linked to B and B linked to C, and B is removed, A and C are likely still close enough to link directly.
+
 **The distributed graph** is the collection of all Cognitons across all federated instances. Each instance holds a subset (or full copy, depending on configuration), and they synchronize changes.
 
 **Sharding**: For large deployments, the graph can be partitioned by semantic clusters. Cognitons with similar vectors live on the same shard, making similarity queries local to a shard when possible.
@@ -130,8 +136,14 @@ When a Cogniton's access score falls below a threshold (configurable, e.g., no a
 **Retrieval**
 When a query matches a stub, the full Cogniton is fetched from cold storage and restored to the active graph. Its access counter resets.
 
-**Path reconnection** (optional)
-For aggressive pruning where even stubs are removed: before deletion, the pruned Cogniton's edges are rewired to its nearest semantic neighbor. This maintains graph connectivity at the cost of some precision.
+**Self-healing on removal**
+When a Cogniton is removed (or fully pruned without a stub), the graph reconnects automatically:
+
+1. Find the removed node's neighbors (nodes it was connected to)
+2. For each pair of neighbors that are now disconnected, check their vector distance
+3. If they're close enough in semantic space, create a direct edge between them
+
+This fills the "hole" left by the removed node. Because edges follow semantic proximity, the mesh stays coherent — nearby nodes remain connected through alternative paths.
 
 **Coordination**
 In a federation, pruning decisions are made per-instance. Each instance manages its own hot/cold boundary. A Cogniton might be cold on one instance but hot on another (due to different access patterns).
